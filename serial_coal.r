@@ -822,6 +822,7 @@ make_dip_sw_plot = function(
         p_dip = log(p_dip)
     }
     dat = data.frame(p_sw=p_sw,p_dip=p_dip)
+    row.names(dat) = row.names(d)
 
     ggplot(dat, aes(x=p_sw, y=p_dip)) +
         geom_point(shape=1, size=2, alpha=0.25) + 
@@ -832,6 +833,31 @@ make_dip_sw_plot = function(
         xlab("Shapiro-Wilks p-value") + 
         ylab("Dip p-value") +
         labs(title="Test p-values for Neurospora crassa RNA-seq data")
+
+    return(dat)
+}
+
+get_sig_dip_sw = function(
+    d,
+    dip=TRUE,
+    sw=TRUE,
+    union=TRUE)
+{
+    apply(d, 1, function(x) {
+        tf = x < log(0.05)
+        if (!dip && !sw)
+            FALSE
+        else if (dip && !sw)
+            tf[1]
+        else if (!dip && sw)
+            tf[2]
+        else {
+            if (union)
+                tf[1] || tf[2]
+            else 
+                tf[1] && tf[2]
+        }
+    })
 }
 
 
