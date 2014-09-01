@@ -746,6 +746,95 @@ plot_diptest = function(dfs)
 }
 
 
+####################
+# N crassa analysis
+####################
+
+get_fdr = function(x,alpha=0.2) {
+	x_sort=sort(x)
+	fdr=NULL
+	for (i in 1:length(x)) { 
+		fdr=c(fdr,x[i] >= match(x[i],x_sort)*alpha/length(x))
+	}
+	return(fdr)
+}
+
+get_fdr_mtx = function(p) {
+
+	fdrs = matrix(0,nrow=21,ncol=2)
+	for (i in 1:21) {
+		alpha = (i-1)*0.05
+		fdr1 = get_fdr(p,alpha)
+		fdrs[i,1]=alpha
+		fdrs[i,2]=sum(fdr1==FALSE)
+	}
+	colnames(fdrs)=c("alpha","n_discovery")
+	
+	return(fdrs)
+}
+
+get_gexp = function(fn="LA_normalizedExpression.txt",cutoff=-5.0)
+{
+	d = read.table(fn,row.names=1,header=FALSE)
+	d[,1:ncol(d)] = log(d[,1:ncol(d)])
+	above_cutoff = !apply(d[,1:ncol(d)], 1, function(x) { any(x <= cutoff) })
+	return(d[above_cutoff,])
+}
+
+get_sw_pvals = function(dd,drop_outlier=TRUE)
+{
+	if (drop_outlier)
+		r = apply( dd[,1:ncol(dd)],1,function(x) { 
+			shapiro.test(x[-which.max(abs(median(x)-x))])
+		})
+	else
+		r = apply(dd[,1:ncol(dd)],1,shapiro.test)
+	p = unlist(lapply(r,function(x){x$p.value}))
+	df = data.frame(V1=dd[,1],V2=unlist(p))
+	return(df)
+}
+
+get_dip_pvals = function(dd, drop_outlier=TRUE)
+{
+	if (drop_outlier)
+		r = apply( dd[,1:ncol(dd)],1,function(x) { 
+			dip.test(x[-which.max(abs(median(x)-x))])
+		})
+	else
+		r = apply(dd[,1:ncol(dd)],1,dip.test)
+	p = unlist(lapply(r,function(x){x$p.value}))
+	df = data.frame(V1=dd[,1],V2=unlist(p))
+	return(df)
+    
+}
+
+make_dip_sw_plot = function(
+    fn="~/Dropbox/TailsOfGlory/code/LA_normalizedExpression.txt",
+    cutoff=-5.0,
+    drop_outlier=TRUE,
+    log=TRUE)
+{
+    d = get_gexp(fn, cutoff)
+    p_sw = get_sw_pvals(d, drop_outlier)$V2
+    p_dip = get_dip_pvals(d, drop_outlier)$V2
+    if (log) {
+        p_sw = log(p_sw)
+        p_dip = log(p_dip)
+    }
+    dat = data.frame(p_sw=p_sw,p_dip=p_dip)
+
+    ggplot(dat, aes(x=p_sw, y=p_dip)) +
+        geom_point(shape=1, size=2, alpha=0.25) + 
+        geom_abline(intercept = log(0.05), slope = 0, colour = "red") +
+        geom_vline(xintercept = log(0.05), colour = "red") +
+        xlim(-15,0) +
+        ylim(-15,0) +
+        xlab("Shapiro-Wilks p-value") + 
+        ylab("Dip p-value") +
+        labs(title="Test p-values for Neurospora crassa RNA-seq data")
+}
+
+
 
 ##################
 ##################
