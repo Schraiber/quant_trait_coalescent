@@ -1,17 +1,17 @@
 source("jumpdif.r")
 
 library(ape)
-library(ggplot2)
-library(reshape2)
-library(scales)
-library(parallel)
-library(sn)
-library(VGAM)
-library(moments)
 library(diptest)
-library(parallel)
+library(fdrtool)
+library(ggplot2)
 require(gridExtra)
 library(gtable)
+library(moments)
+library(parallel)
+library(reshape2)
+library(scales)
+library(sn)
+library(VGAM)
 
 ###################
 #  simulate data  #
@@ -746,9 +746,9 @@ plot_diptest = function(dfs)
 }
 
 
-####################
-# N crassa analysis
-####################
+#####################
+# N crassa analysis #
+#####################
 
 get_fdr = function(x,alpha=0.2) {
 	x_sort=sort(x)
@@ -773,7 +773,7 @@ get_fdr_mtx = function(p) {
 	return(fdrs)
 }
 
-get_gexp = function(fn="LA_normalizedExpression.txt",cutoff=-5.0)
+get_gexp = function(fn="~/Dropbox/TailsOfGlory/code/LA_normalizedExpression.txt", cutoff=-5.0)
 {
 	d = read.table(fn,row.names=1,header=FALSE)
 	d[,1:ncol(d)] = log(d[,1:ncol(d)])
@@ -781,35 +781,36 @@ get_gexp = function(fn="LA_normalizedExpression.txt",cutoff=-5.0)
 	return(d[above_cutoff,])
 }
 
-get_sw_pvals = function(dd,drop_outlier=TRUE)
+get_sw_pvals = function(d,drop_outlier=TRUE)
 {
 	if (drop_outlier)
-		r = apply( dd[,1:ncol(dd)],1,function(x) { 
+		r = apply( d[,1:ncol(d)],1,function(x) { 
 			shapiro.test(x[-which.max(abs(median(x)-x))])
 		})
 	else
-		r = apply(dd[,1:ncol(dd)],1,shapiro.test)
+		r = apply(d[,1:ncol(d)],1,shapiro.test)
 	p = unlist(lapply(r,function(x){x$p.value}))
-	df = data.frame(V1=dd[,1],V2=unlist(p))
+	df = data.frame(V1=d[,1],V2=unlist(p))
 	return(df)
 }
 
-get_dip_pvals = function(dd, drop_outlier=TRUE)
+get_dip_pvals = function(d, drop_outlier=TRUE)
 {
 	if (drop_outlier)
-		r = apply( dd[,1:ncol(dd)],1,function(x) { 
+		r = apply( d[,1:ncol(d)],1,function(x) { 
 			dip.test(x[-which.max(abs(median(x)-x))])
 		})
 	else
-		r = apply(dd[,1:ncol(dd)],1,dip.test)
+		r = apply(d[,1:ncol(d)],1,dip.test)
 	p = unlist(lapply(r,function(x){x$p.value}))
-	df = data.frame(V1=dd[,1],V2=unlist(p))
+	df = data.frame(V1=d[,1],V2=unlist(p))
 	return(df)
     
 }
 
 make_dip_sw_plot = function(
     fn="~/Dropbox/TailsOfGlory/code/LA_normalizedExpression.txt",
+    alpha=0.2,
     cutoff=-5.0,
     drop_outlier=TRUE,
     log=TRUE)
@@ -823,18 +824,26 @@ make_dip_sw_plot = function(
     }
     dat = data.frame(p_sw=p_sw,p_dip=p_dip)
     row.names(dat) = row.names(d)
+    
+    plot_dip_sw(dat)
 
+    return(dat)
+}
+
+plot_dip_sw = function(dat)
+{
+    p_sw=dat$p_sw
+    p_dip=dat$p_dip
     ggplot(dat, aes(x=p_sw, y=p_dip)) +
+    #    geom_point(shape=1)
         geom_point(shape=1, size=2, alpha=0.25) + 
         geom_abline(intercept = log(0.05), slope = 0, colour = "red") +
         geom_vline(xintercept = log(0.05), colour = "red") +
         xlim(-15,0) +
         ylim(-15,0) +
-        xlab("Shapiro-Wilks p-value") + 
-        ylab("Dip p-value") +
+    #    xlab("Shapiro-Wilks p-value") + 
+    #    ylab("Dip p-value")
         labs(title="Test p-values for Neurospora crassa RNA-seq data")
-
-    return(dat)
 }
 
 get_sig_dip_sw = function(
