@@ -8,6 +8,7 @@ require(gridExtra)
 library(gtable)
 library(moments)
 library(parallel)
+library(plyr)
 library(reshape2)
 library(scales)
 library(sn)
@@ -411,6 +412,7 @@ plot_all_ksfp = function(k1,k2,k3)
     return(pp)
 
 }
+
 ###################
 # compute moments #
 ###################
@@ -790,25 +792,87 @@ get_sw_pvals = function(d,drop_outlier=TRUE)
 	else
 		r = apply(d[,1:ncol(d)],1,shapiro.test)
 	p = unlist(lapply(r,function(x){x$p.value}))
-	df = data.frame(V1=d[,1],V2=unlist(p))
+    df = data.frame(sw=unlist(p))
+    row.names(df) = row.names(d)
 	return(df)
 }
 
-get_dip_pvals = function(d, drop_outlier=TRUE)
+get_dip_pvals = function(d, drop_outlier=TRUE, sim_p=FALSE, ncores=12)
 {
+
+    dip_list = alply(d, 1, function(x) data.frame(x))
+
+    if (sim_p)
+        sim_b = nrow(d)*10
+
 	if (drop_outlier)
-		r = apply( d[,1:ncol(d)],1,function(x) { 
-			dip.test(x[-which.max(abs(median(x)-x))])
+		r = mclapply(dip_list, mc.cores=ncores, function(x) { 
+            x = as.numeric(as.vector(x))
+            print(x[1])
+            x_drop = x[-which.max(abs(median(x)-x))]
+			dip.test(unlist(x_drop), simulate.p.value=sim_p, B=sim_b)
 		})
 	else
-		r = apply(d[,1:ncol(d)],1,dip.test)
+		r = mclapply(dip_list, mc.cores=ncores, function(x) {
+            x = x[1:length(x)]
+            dip.test(unlist(x), simulate.p.value=sim_p, B=sim_b)
+        })
 	p = unlist(lapply(r,function(x){x$p.value}))
-	df = data.frame(V1=d[,1],V2=unlist(p))
+    df = data.frame(dip=p)
+    row.names(df) = row.names(d)
 	return(df)
     
 }
 
-make_dip_sw_plot = function(
+get_fdr_eg = function(d, alpha=0.1)
+{
+    rn=row.names(d)[which(!get_fdr(exp(d$p_sw),alpha=alpha))]
+    length(which(exp(d[rn,]$p_sw)<0.05 & d[rn,]$skew<0.5))
+}
+
+get_expr_kurt = function(d,drop_outlier=TRUE)
+{
+	if (drop_outlier)
+		r = apply( d[,1:ncol(d)],1,function(x) { 
+			kurtosis(x[-which.max(abs(median(x)-x))])
+			#moment(x[-which.max(abs(median(x)-x))])
+		})
+	else
+		r = apply(d[,1:ncol(d)],1,kurtosis)
+    df = data.frame(kurtosis=r)
+    row.names(df) = row.names(d)
+	return(df)
+}
+
+get_expr_var = function(d,drop_outlier=TRUE)
+{
+	if (drop_outlier)
+		r = apply( d[,1:ncol(d)],1,function(x) { 
+			var(x[-which.max(abs(median(x)-x))])
+		})
+	else
+		r = apply(d[,1:ncol(d)],1,var)
+    df = data.frame(variance=r)
+    row.names(df) = row.names(d)
+	return(df)
+}
+
+get_expr_skew = function(d,drop_outlier=TRUE)
+{
+	if (drop_outlier)
+		r = apply( d[,1:ncol(d)],1,function(x) { 
+			skewness(x[-which.max(abs(median(x)-x))])
+		    #moment(x[-which.max(abs(median(x)-x))], 3)
+		})
+	else
+		r = apply(d[,1:ncol(d)],1,skewness)
+    df = data.frame(skewness=r)
+    row.names(df) = row.names(d)
+	return(df)
+}
+
+
+make_dip_sw_dat = function(
     fn="~/Dropbox/TailsOfGlory/code/LA_normalizedExpression.txt",
     alpha=0.2,
     cutoff=-5.0,
@@ -825,26 +889,9 @@ make_dip_sw_plot = function(
     dat = data.frame(p_sw=p_sw,p_dip=p_dip)
     row.names(dat) = row.names(d)
     
-    plot_dip_sw(dat)
-
     return(dat)
 }
 
-plot_dip_sw = function(dat)
-{
-    p_sw=dat$p_sw
-    p_dip=dat$p_dip
-    ggplot(dat, aes(x=p_sw, y=p_dip)) +
-    #    geom_point(shape=1)
-        geom_point(shape=1, size=2, alpha=0.25) + 
-        geom_abline(intercept = log(0.05), slope = 0, colour = "red") +
-        geom_vline(xintercept = log(0.05), colour = "red") +
-        xlim(-15,0) +
-        ylim(-15,0) +
-    #    xlab("Shapiro-Wilks p-value") + 
-    #    ylab("Dip p-value")
-        labs(title="Test p-values for Neurospora crassa RNA-seq data")
-}
 
 get_sig_dip_sw = function(
     d,
@@ -869,6 +916,150 @@ get_sig_dip_sw = function(
     })
 }
 
+get_smallest_p = function(p,by=1,n=length(p))
+{
+    p_sort_idx = order(p[,by])
+    p_sort = data.frame(x=p[p_sort_idx,])
+    return(p_sort)
+}
+
+plot_dip_sw = function(dat)
+{
+    p_sw=dat$p_sw
+    p_dip=dat$p_dip
+    ggplot(dat, aes(x=p_sw, y=p_dip)) +
+    #    geom_point(shape=1)
+        geom_point(shape=1, size=2, alpha=0.3) + 
+        geom_abline(intercept = log(0.05), slope = 0, linetype = "dashed") +
+        geom_vline(xintercept = log(0.05), linetype = "dashed") +
+        #annotate("text",x=-10,y=log(0.05),label="\np<log(0.05)") +
+        #annotate("text",x=log(0.05),y=-10,angle=90,label="p<log(0.05)\n") +
+        xlim(-15,0) +
+        ylim(-15,0) +
+        ylab("Dip log(p-value)") +
+        xlab("Shapiro-Wilks log(p-value)")
+        #labs(title="Test p-values for Neurospora crassa RNA-seq data")
+}
+
+plot_gexp_histograms = function(d,
+        names=c(
+            "NCU08194", 
+            "NCU09073",
+            "NCU05196", 
+            "NCU01838",
+            "NCU08193",   
+            "NCU09243"),
+        labels=c(
+            "multimodal",
+            "leptokurtic, skewed",
+            "leptokurtic",
+            "leptokurtic, skewed",
+            "multimodal",
+            "multimodal")
+    )
+{
+    dev.new()
+    
+    p = list()
+    for (i in 1:length(names))
+    {
+        df=data.frame(x=unlist(d[ names[i], ]))
+        p[[i]] = ggplot(df, aes(x=x)) +
+            geom_histogram(binwidth=0.2) +
+            coord_cartesian(ylim=c(0,20),xlim=c(-4,4)) +
+            ylab("") +
+            xlab("") +
+            labs(title=paste(names[i],"\n(",labels[i],")",sep=""))
+        
+
+        if (i %% 3 == 1)
+        {
+            p[[i]] = p[[i]] + ylab("count")
+        }
+        else # if (FALSE)
+        {
+            p[[i]] = p[[i]] +
+                        theme(axis.ticks.y=element_blank(), 
+                        axis.text.y=element_blank(), 
+                        axis.title.y=element_blank())
+        }
+        if (i >= 4)
+            p[[i]] = p[[i]] + xlab("log(gene expr.)")
+        
+        sn=c("skewed","leptokurtic","multimodal")
+        if (i <= 3) # || FALSE)
+        {
+            #p[[i]] = p[[i]] + labs(title=paste(sn[i],"\n",names[i],""))
+            p[[i]] = p[[i]] +
+                        theme(axis.ticks.x=element_blank(), 
+                        axis.text.x=element_blank(), 
+                        axis.title.x=element_blank())
+        }
+    }
+
+    pp = grid.arrange(arrangeGrob(  p[[1]],
+                                    p[[2]],
+                                    p[[3]],
+                                    p[[4]],
+                                    p[[5]],
+                                    p[[6]],
+                                    nrow = 2),
+                                widths=c(6,1),
+                                nrow = 1)
+
+    return(pp)
+
+}
+
+plot_psw = function(dat)
+{
+
+    dev.new()
+
+    psw_pdip = ggplot(dat, aes(x=p_dip, y=p_sw)) +
+        geom_point(shape=1, size=2, alpha=0.3) + 
+        geom_abline(intercept = log(0.05), slope = 0, linetype = "dashed") +
+        geom_vline(xintercept = log(0.05), linetype = "dashed") +
+        xlim(-15,0) +
+        ylim(-15,0) +
+        xlab("Dip log(p-value)") +
+        ylab("Shapiro-Wilks log(p-value)")
+
+    psw_skew = ggplot(data=dat, aes(x=skew, y=p_sw)) +
+        geom_point(shape=1, size=2, alpha=0.3) + 
+        geom_abline(intercept = log(0.05), slope = 0, linetype = "dashed") +
+        geom_vline(xintercept = 0, linetype = "dotted") +
+        xlab("Sample skewness") +
+        ylab("") +
+        ylim(-15,0)
+
+    psw_kurt = ggplot(data=dat, aes(x=kurt, y=p_sw)) +
+        geom_point(shape=1, size=2, alpha=0.3) + 
+        geom_abline(intercept = log(0.05), slope = 0, linetype = "dashed") +
+        geom_vline(xintercept = 3, linetype = "dotted") +
+        xlab("Sample kurtosis") +
+        ylab("") +
+        ylim(-15,0)
+
+    pp = grid.arrange(arrangeGrob(  psw_pdip + theme(legend.position="none"),
+                                    psw_skew + theme(legend.position="none"),
+                                    psw_kurt + theme(legend.position="none"),
+                                    nrow = 1),
+                                widths=c(6,1),
+                                nrow = 1)
+    grid.text(paste(letters[1:3],")",sep=""), x=c(0.02,0.35,0.69), y=0.94)
+
+    return(pp)
+
+}
+
+rbinorm = function(n, mean=c(0,2), sd=c(1,1), w=0.5)
+{
+    n1 = rbinom(1,n,w)
+    f1 = rnorm(n1, mean[1], sd[1])
+    f2 = rnorm(n-n1, mean[2], sd[2])
+    return(c(f1,f2))
+}
 
 
 ##################
