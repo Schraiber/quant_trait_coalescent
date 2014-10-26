@@ -10,8 +10,10 @@ make_data = function(d_fn = "GD462.GeneQuantRPKM.50FN.samplename.resk10.txt")
 {
     d = read.csv(d_fn, header=T, sep="\t",as.is=T)
     n = colnames(d)[5:ncol(d)]
+    r = d$TargetID
     d = matrix(as.numeric(unlist(d[,5:ncol(d)])),ncol=ncol(d)-4)
     colnames(d) = n
+    rownames(d) = r
     return(d)
 }
 
@@ -22,7 +24,7 @@ match_cols = function(k,d)
     m = n
     for (i in 1:length(n))
     {
-        idx = k[which(k[,2]==n[i]),1]
+        idx = unlist(k[which(k[,2]==n[i]),1])
         if (is.na(m[i]) || identical(idx,character(0)))
             m[i] = n[i]
         else
@@ -66,15 +68,11 @@ hmm = function(d1,d2)
     dip2=get_dip_pvals(d2,F,F)
     sw2=get_sw_pvals(d2)
 
-    plot(m1_2,m2_2)
-    plot(m1_3,m2_3)
-    plot(m1_4,m2_4)
+    dev.new();plot(m1_2[,1],m2_2[,1],xlab="EUR",ylab="YRI",main="var")
+    dev.new();plot(m1_3[,1],m2_3[,1],xlab="EUR",ylab="YRI",main="skew")
+    dev.new();plot(m1_4[,1],m2_4[,1],xlab="EUR",ylab="YRI",main="kurt")
 
-    plot(m1_2,m2_2)
-    plot(m1_3,m2_3)
-    plot(m1_4,m2_4)
-
-    plot(dip1[,1],dip2[,1])
-    plot(sw1[,1],sw2[,1])
+    dev.new();plot(dip1[,1],dip2[,1],xlab="EUR",ylab="YRI",main="dip")
+    dev.new();plot(sw1[,1],sw2[,1],xlab="EUR",ylab="YRI",main="SW")
 
 }
