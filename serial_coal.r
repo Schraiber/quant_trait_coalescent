@@ -13,6 +13,7 @@ library(reshape2)
 library(scales)
 library(sn)
 library(VGAM)
+library(outliers)
 
 ###################
 #  simulate data  #
@@ -783,12 +784,20 @@ get_gexp = function(fn="~/Dropbox/TailsOfGlory/code/LA_normalizedExpression.txt"
 	return(d[above_cutoff,])
 }
 
-get_sw_pvals = function(d,drop_outlier=TRUE)
+
+get_sw_pvals = function(d,drop_outlier=TRUE,n=1)
 {
+    if (drop_outlier && n <= 0)
+        n = 1
 	if (drop_outlier)
-		r = apply( d[,1:ncol(d)],1,function(x) { 
-			shapiro.test(x[-which.max(abs(median(x)-x))])
-		})
+    {
+        r = apply( d[,1:ncol(d)],1,function(x) {
+            for (i in 1:n)
+                x = rm.outlier(x)
+            #shapiro.test(x[-which.max(abs(median(x)-x))])
+            shapiro.test(x)
+        })
+    }
 	else
 		r = apply(d[,1:ncol(d)],1,shapiro.test)
 	p = unlist(lapply(r,function(x){x$p.value}))
@@ -808,7 +817,6 @@ get_dip_pvals = function(d, drop_outlier=TRUE, sim_p=FALSE, ncores=12)
 	if (drop_outlier)
 		r = mclapply(dip_list, mc.cores=ncores, function(x) { 
             x = as.numeric(as.vector(x))
-            print(x[1])
             x_drop = x[-which.max(abs(median(x)-x))]
 			dip.test(unlist(x_drop), simulate.p.value=sim_p, B=sim_b)
 		})
