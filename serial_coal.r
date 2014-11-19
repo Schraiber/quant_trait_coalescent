@@ -10,10 +10,13 @@ library(moments)
 library(parallel)
 library(plyr)
 library(reshape2)
+library(robustbase)
 library(scales)
 library(sn)
 library(VGAM)
 library(outliers)
+library(PASWR)
+library(fpc)
 
 ###################
 #  simulate data  #
@@ -748,6 +751,15 @@ plot_diptest = function(dfs)
         guides(color=guide_legend(title="kernel"))
 }
 
+####################
+# HDGP analysis
+####################
+
+sk2 = function(d) { quart = quantile(d,1:4/4); (quart[3]+quart[1]-2*quart[2])/(quart[3]-quart[1]) }
+
+kr2 = function(d) { oct = quantile(d,1:8/8); ((oct[7]-oct[5])+(oct[3]-oct[1]))/(oct[6]-oct[2])-1.23}
+
+
 
 #####################
 # N crassa analysis #
@@ -812,7 +824,7 @@ get_dip_pvals = function(d, drop_outlier=TRUE, sim_p=FALSE, ncores=12)
     dip_list = alply(d, 1, function(x) data.frame(x))
 
     if (sim_p)
-        sim_b = nrow(d)*10
+        sim_b = nrow(d)*1
 
 	if (drop_outlier)
 		r = mclapply(dip_list, mc.cores=ncores, function(x) { 
