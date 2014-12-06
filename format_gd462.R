@@ -27,11 +27,17 @@ make_data = function(d_fn = "GD660.GeneQuantRPKM.txt", unique=T)
     return(d)
 }
 
-filter_data = function(d,cutoff=-5,f=1.0)
+filter_data = function(d,cutoff=-5,f=1.0,filter=TRUE)
 {
     d[,2:ncol(d)] = log(d[,2:ncol(d)])
     n = ncol(d)-1
-    above_cutoff = !apply( d[,2:ncol(d)],1,function(x) { sum(x>cutoff)/n < f })
+    if (filter)
+        above_cutoff = !apply( d[,2:ncol(d)],1,function(x) { sum(x>cutoff)/n < f })
+    else {
+        above_cutoff = !apply( d[,2:ncol(d)],1,function(x) { sum(x > -Inf)/n < f })
+        #1:nrow(d)
+        d[d == -Inf] = NA
+    }
     return(d[above_cutoff,])
 }
 
@@ -130,11 +136,11 @@ q_var_moment = function(d, f=sk2, g=var) {
     ret = list()
 
     # moments from data
-    d_Qn = apply(d,1,Qn)
-    d_fn = apply(d,1,f)
+    d_Qn = apply(d,1,function(x) { Qn(x[!is.na(x)]) } )
+    d_fn = apply(d,1,function(x) { f(x[!is.na(x)]) } )
 
     # get traits per Qn quantile
-    qnt_val = quantile(d_Qn,probs=seq(0.0,1.0,0.05))
+    qnt_val = quantile(d_Qn,probs=seq(0.0,1.0,0.1))
     n_bins = length(qnt_val)
     qnt_elt = list()
     for (i in 1:(n_bins-1)) {
@@ -161,9 +167,85 @@ q_var_moment = function(d, f=sk2, g=var) {
 
     new_d = lapply(qnt_elt, function(x) { d_fn[x] })
     dev.new()
-    boxplot(new_d)
+    #boxplot(new_d)
+    plot(d_Qn, d_fn,col="black",xlab=expression(Q[n]),ylab=expression(KR[2]),cex=.5)
+    for (i in 2:(n_bins-1)) {
+        abline(v=qnt_val[i],lty=3)
+    }
+    abline(h=0.0,lty=2)
     return(ret)
 }
+
+qn_quant_plot = function(d, f=sk2, ylab, xlab=expression(Q[n])) {
+
+    ret = list()
+
+    # moments from data
+    d_Qn = apply(d,1,function(x) { Qn(x[!is.na(x)]) } )
+    d_fn = apply(d,1,function(x) { f(x[!is.na(x)]) } )
+
+    # get traits per Qn quantile
+    qnt_val = quantile(d_Qn,probs=seq(0.0,1.0,0.1))
+    n_bins = length(qnt_val)
+    qnt_elt = list()
+    for (i in 1:(n_bins-1)) {
+       x = intersect(which(d_Qn > qnt_val[i]), which(d_Qn <= qnt_val[i+1]))
+       qnt_elt[[i]] = x
+    }
+
+    dev.new()
+    plot(d_Qn, d_fn,col="black",xlab=expression(Q[n]),ylab=expression(KR[2]),cex=.5)
+    for (i in 2:(n_bins-1)) {
+        abline(v=qnt_val[i],lty=3)
+    }
+    abline(h=0.0,lty=2)
+    return(ret)
+}
+
+quant_kr_sk = function(d) {
+
+    ret = list()
+
+    # moments from data
+    d_Qn = apply(d,1,function(x) { Qn(x[!is.na(x)]) } )
+    d_sk = apply(d,1,function(x) { sk2(x[!is.na(x)]) } )
+    d_kr = apply(d,1,function(x) { kr2(x[!is.na(x)]) } )
+
+    # get traits per Qn quantile
+    qnt_qn = quantile(d_Qn,probs=seq(0.0,1.0,0.1))
+    qnt_sk = quantile(d_sk,probs=0.5)
+    qnt_kr = quantile(d_kr,probs=0.5)
+
+    n_bins = length(qnt_qn)
+    qnt_elt = list()
+    for (i in 1:(n_bins-1)) {
+       x = intersect(which(d_Qn > qnt_qn[i]), which(d_Qn <= qnt_qn[i+1]))
+       print(x)
+       s0k0 = x[ subset(d_sk[x] < qnt_sk, d_kr[x] < qnt_kr) ]
+       #print( d_sk[x] < qnt_sk && d_kr[x] < qnt_kr )
+       s0k1 = x[ subset(d_sk[x] < qnt_sk, d_kr[x] >= qnt_kr) ]
+       #print( d_sk[x] < qnt_sk && d_kr[x] >= qnt_kr )
+       s1k0 = x[ subset(d_sk[x] >= qnt_sk, d_kr[x] < qnt_kr) ]
+       #print( d_sk[x] >= qnt_sk && d_kr[x] < qnt_kr )
+       s1k1 = x[ subset(d_sk[x] >= qnt_sk, d_kr[x] >= qnt_kr) ]
+       #print( d_sk[x] >= qnt_sk && d_kr[x] >= qnt_kr )
+
+       print( subset(d_sk[x] < qnt_sk, d_kr[x] < qnt_kr) )
+       print( subset(d_sk[x] < qnt_sk, d_kr[x] >= qnt_kr) )
+       print( subset(d_sk[x] >= qnt_sk, d_kr[x] < qnt_kr) )
+       print( subset(d_sk[x] >= qnt_sk, d_kr[x] >= qnt_kr) )
+       v = c( length(s0k0), length(s0k1), length(s1k0), length(s1k1) )
+       print(sum(v))
+       qnt_elt[[i]] = sapply(v, function(yy) { as.numeric(yy) } )
+    }
+
+    #boxplot(new_d)
+    #plot(d_Qn, d_fn,col="black",xlab=expression(Q[n]),ylab=expression(KR[2]),cex=.5)
+    #for (i in 2:(n_bins-1)) { abline(v=qnt_val[i],lty=3) }
+    #abline(h=0.0,lty=2)
+    return(qnt_elt)
+}
+
 
 
 # workflow
@@ -178,19 +260,36 @@ eur=eur[,-1] # crazy outlier
 yri=make_pop_data(k,df)
 
 # SW discoveries
-eur_sw_fdr_idx = get_sw_sig(eur, qval=0.005, ndrop=6, ns=ncol(yri))
-yri_sw_fdr_idx = get_sw_sig(yri, qval=0.005, ndrop=10)
+eur_sw_fdr_idx = get_sw_sig(eur, qval=0.05, ndrop=0, ns=ncol(eur))
+yri_sw_fdr_idx = get_sw_sig(yri, qval=0.05, ndrop=0)
+eurss_sw_fdr_idx = get_sw_sig(eur, qval=0.05, ndrop=, ns=ncol(yri))
 
-# dip discoveries
-eur_dip=get_dip_pvals(eur,drop_outlier=F,ncores=4)
-eur_dip_fdr = fdrtool(0-eur_dip$dip, statistic="pvalue", cutoff.method="fndr")
-eur_dip2 = c(dipp.tantrum(eur,dip(eur),M=nrow(eur)*1.5)$p.value)
+# naive robust moments
+eur_sk = apply(eur,1,sk2)
+eur_kr = apply(eur,1,kr2)
+eur_qn = apply(eur,1,Qn)
+plot(eur_qn,eur_sk,col="gray")
 
-# quantile stuff
+# Wilcox test
+hist(eur_sk,breaks=100,xlab=expression("SK"[2]),main="");abline(v=0,lw=3)
+hist(eur_kr,breaks=100,xlab=expression("KR"[2]),main="",xlim=c(-1,4));abline(v=0,lw=3)
+
+# scatter-quantile
+sq_sk2 = qn_quant_plot(eur, f=sk2, ylab=expression(SK[2]))
+sq_kr2 = qn_quant_plot(eur, f=kr2, ylab=expression(KR[2]))
+
+# quantile summary stats
 eur_sk_med = q_var_moment(eur, f=sk2, g=median)
-eur_sk_med = q_var_moment(eur, f=sk2, g=var)
-eur_kr_var = q_var_moment(eur, f=kr2, g=median)
+eur_sk_var = q_var_moment(eur, f=sk2, g=var)
+eur_kr_med = q_var_moment(eur, f=kr2, g=median)
 eur_kr_var = q_var_moment(eur, f=kr2, g=var)
+
+quant_ss(eur_sk_var, eur_kr_var)
+
+
+# index ordered estimates
+order_sk_idx = order(eur_sk)
+order_kr_idx = order(eur_kr)
 
 plot(eur_kr_var$d, col=1, type="l", ylim=c(-0.1,0.1))
 lines(eur_kr_var$sim, col=1, lty=2)
@@ -201,6 +300,12 @@ lines(eur_kr_med$sim, col=3, lty=2)
 lines(eur_sk_med$d, col=4, lty=2)
 lines(eur_sk_med$sim, col=4, lty=2)
 
+# dip discoveries
+eur_dip=get_dip_pvals(eur,drop_outlier=F,ncores=4)
+eur_dip_fdr = fdrtool(0-eur_dip$dip, statistic="pvalue", cutoff.method="fndr")
+eur_dip2 = c(dipp.tantrum(eur,dip(eur),M=nrow(eur)*1.5)$p.value)
+
+
 # compare kurt
 
 
@@ -209,6 +314,17 @@ lines(eur_sk_med$sim, col=4, lty=2)
 
 
 # robust
+
+
+# TODO
+# 1) SW test, rampant non-normality
+# 2) skew/kurt wrt Qn, increases
+# 3) multimodality, dip test
+# 4) re-check GWAS+dip enrichment
+# 5) example histograms
+
+
+
 }
 
 
