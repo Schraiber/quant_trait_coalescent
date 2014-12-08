@@ -1,5 +1,6 @@
 source("serial_coal.r")
 require(ggplot2)
+require(hexbin)
 #require(GGally)
 
 make_key = function(k_fn = "hgdp_key.txt")
@@ -194,11 +195,9 @@ qn_quant_plot = function(d, f=sk2, ylab, xlab=expression(Q[n])) {
     }
 
     dev.new()
-    plot(d_Qn, d_fn,col="black",xlab=expression(Q[n]),ylab=expression(KR[2]),cex=.5)
-    for (i in 2:(n_bins-1)) {
-        abline(v=qnt_val[i],lty=3)
-    }
-    abline(h=0.0,lty=2)
+    df = data.frame(x=d_Qn,y=d_fn)
+    p = ggplot(df, aes(x=x,y=y)) + stat_binhex(bins=100) + geom_vline(xintercept=qnt_val[2:(n_bins-1)], col="black", linetype="dotted") + geom_hline(yintercept=median(d_fn),col="black",linetype="dashed") + xlab(xlab) + ylab(ylab) + scale_fill_gradient(low="gray",high="black")
+    print(p)
     return(ret)
 }
 
