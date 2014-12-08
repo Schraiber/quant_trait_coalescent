@@ -1,6 +1,6 @@
 source("serial_coal.r")
 require(ggplot2)
-require(GGally)
+#require(GGally)
 
 make_key = function(k_fn = "hgdp_key.txt")
 {
@@ -202,48 +202,51 @@ qn_quant_plot = function(d, f=sk2, ylab, xlab=expression(Q[n])) {
     return(ret)
 }
 
-quant_kr_sk = function(d) {
+quant_kr_sk = function(d,th=.5) {
 
     ret = list()
 
     # moments from data
     d_Qn = apply(d,1,function(x) { Qn(x[!is.na(x)]) } )
-    d_sk = apply(d,1,function(x) { sk2(x[!is.na(x)]) } )
-    d_kr = apply(d,1,function(x) { kr2(x[!is.na(x)]) } )
+    d_sk = abs(apply(d,1,function(x) { sk2(x[!is.na(x)]) } ))
+    d_kr = abs(apply(d,1,function(x) { kr2(x[!is.na(x)]) } ))
 
     # get traits per Qn quantile
     qnt_qn = quantile(d_Qn,probs=seq(0.0,1.0,0.1))
-    qnt_sk = quantile(d_sk,probs=0.5)
-    qnt_kr = quantile(d_kr,probs=0.5)
+    qnt_sk = quantile(d_sk,probs=th)
+    qnt_kr = quantile(d_kr,probs=th)
 
+    # get skew/kurt upper 50 per bracket
     n_bins = length(qnt_qn)
-    qnt_elt = list()
+    qnt_elt = matrix(c(0),n_bins-1,4)
     for (i in 1:(n_bins-1)) {
-       x = intersect(which(d_Qn > qnt_qn[i]), which(d_Qn <= qnt_qn[i+1]))
-       print(x)
-       s0k0 = x[ subset(d_sk[x] < qnt_sk, d_kr[x] < qnt_kr) ]
-       #print( d_sk[x] < qnt_sk && d_kr[x] < qnt_kr )
-       s0k1 = x[ subset(d_sk[x] < qnt_sk, d_kr[x] >= qnt_kr) ]
-       #print( d_sk[x] < qnt_sk && d_kr[x] >= qnt_kr )
-       s1k0 = x[ subset(d_sk[x] >= qnt_sk, d_kr[x] < qnt_kr) ]
-       #print( d_sk[x] >= qnt_sk && d_kr[x] < qnt_kr )
-       s1k1 = x[ subset(d_sk[x] >= qnt_sk, d_kr[x] >= qnt_kr) ]
-       #print( d_sk[x] >= qnt_sk && d_kr[x] >= qnt_kr )
-
-       print( subset(d_sk[x] < qnt_sk, d_kr[x] < qnt_kr) )
-       print( subset(d_sk[x] < qnt_sk, d_kr[x] >= qnt_kr) )
-       print( subset(d_sk[x] >= qnt_sk, d_kr[x] < qnt_kr) )
-       print( subset(d_sk[x] >= qnt_sk, d_kr[x] >= qnt_kr) )
-       v = c( length(s0k0), length(s0k1), length(s1k0), length(s1k1) )
-       print(sum(v))
-       qnt_elt[[i]] = sapply(v, function(yy) { as.numeric(yy) } )
+        x = intersect(which(d_Qn > qnt_qn[i]), which(d_Qn <= qnt_qn[i+1]))
+        tmp_sk = d_sk[x]
+        tmp_kr = d_kr[x]
+        lbl = sapply(1:length(x), function(y) {
+        if (tmp_sk[y] < qnt_sk && tmp_kr[y] < qnt_kr) {
+        return(1)
+        } else if (tmp_sk[y] < qnt_sk && tmp_kr[y] >= qnt_kr) {
+        return(2)
+        } else if (tmp_sk[y] >= qnt_sk && tmp_kr[y] < qnt_kr) {
+        return(3)
+        } else if (tmp_sk[y] >= qnt_sk && tmp_kr[y] >= qnt_kr) {
+        return(4)
+        }})
+        v = sapply(1:4, function(y) { sum(lbl==y) })
+        qnt_elt[i,] = v
     }
+    v = data.frame(quantile=1:(n_bins-1),s0k0=qnt_elt[,1], s0k1=qnt_elt[,2], s1k0=qnt_elt[,3], s1k1=qnt_elt[,4])
+    mv = melt(qks,id=c("quantile"))
+    
+    #txt_lbls = c(   paste("S<",th,",K<",th,sep=""),paste("S<",th,",K>",th,sep=""),paste("S>",th,",K<",th,sep=""),paste("S>",th,",K>",th,sep=""))
+    txt_lbls = c("S-K-","S-K+","S+K-","S+K+")
+    mn_qnt_qn_txt = as.character(sapply(2:n_bins, function(y) { mean(qnt_qn[(y-1):y]) } ))
+    dev.new()
+    p = ggplot(mv,aes(x=quantile,y=value,fill=variable)) + geom_bar(stat="identity") + scale_fill_discrete(labels=txt_lbls) + theme(axis.ticks.x=element_blank(), axis.text.x=element_blank()) + xlab(expression(Q[n] ~ quantiles)) + ylab(No. ~ SK[2] ~ and ~ KR[2] ~ matches) + ggtitle(paste("Moment quantiles (>",th,")",sep="")) + geom_hline(yintercept=c(th*th*sum(v[1,])),linetype="dashed")
+    print(p)
 
-    #boxplot(new_d)
-    #plot(d_Qn, d_fn,col="black",xlab=expression(Q[n]),ylab=expression(KR[2]),cex=.5)
-    #for (i in 2:(n_bins-1)) { abline(v=qnt_val[i],lty=3) }
-    #abline(h=0.0,lty=2)
-    return(qnt_elt)
+    return(v)
 }
 
 
