@@ -249,6 +249,41 @@ quant_kr_sk = function(d,th=.5) {
 }
 
 
+# d: data frame, traits x individuals
+# f: function you want to compare vs Qn quantiles -- e.g. sk2, kr2
+# g: function you want to use to summarize f-quantile results -- e.g. var, median
+q_var_moment2 = function(d) {
+
+    # moments from data
+    d_Qn = apply(d,1,function(x) { Qn(x[!is.na(x)]) } )
+    d_sk = apply(d,1,function(x) { sk2(x[!is.na(x)]) } )
+    d_kr = apply(d,1,function(x) { kr2(x[!is.na(x)]) } )
+
+    # sim data
+    sim = data.frame( matrix( 0, nrow(d), ncol(d) ) )
+    for (i in 1:nrow(d)) {
+        print(i)
+        sim[i,] = rnorm(ncol(d), 0., d_Qn[i])
+    }
+    d_sk_null = apply(sim,1,function(x) { sk2(x) } )
+    d_kr_null = apply(sim,1,function(x) { kr2(x) } )
+
+    # get traits per Qn quantile
+    qnt_val = quantile(d_Qn,probs=seq(0.0,1.0,0.1))
+    n_bins = length(qnt_val)
+    qnt_elt = matrix(c(0),n_bins-1,5)
+    for (i in 1:(n_bins-1)) {
+        x = intersect(which(d_Qn > qnt_val[i]), which(d_Qn <= qnt_val[i+1]))
+        qnt_elt[i,] = c(i,var(d_sk[x]), var(d_kr[x]), var(d_sk_null[x]), var(d_kr_null[x]))
+    }
+
+    df = data.frame(n=qnt_elt[,1],sk=qnt_elt[,2],kr=qnt_elt[,3],skn=qnt_elt[,4],krn=qnt_elt[,5])
+    #p = ggplot(df, aes(df[,1])) + geom_line(aes(y=qnt_elt[,2]), colour="sk2") + geom_line(aes(y=qnt_elt[,3]),colour="kr2")
+    p = ggplot(df, aes(x=n)) + geom_line(aes(y=sk,colour="sk2")) + geom_line(aes(y=kr,colour="kr2")) + geom_line(aes(y=skn,colour="sk2"),linetype="dashed") + geom_line(aes(y=krn,colour="kr2"),linetype="dashed")
+    print(p)
+    return(qnt_elt)
+}
+
 
 # workflow
 if (false)
@@ -273,12 +308,19 @@ eur_qn = apply(eur,1,Qn)
 plot(eur_qn,eur_sk,col="gray")
 
 # Wilcox test
-hist(eur_sk,breaks=100,xlab=expression("SK"[2]),main="");abline(v=0,lw=3)
-hist(eur_kr,breaks=100,xlab=expression("KR"[2]),main="",xlim=c(-1,4));abline(v=0,lw=3)
+#hist(eur_sk,breaks=100,xlab=expression("SK"[2]),main="");abline(v=0,lw=3)
+#hist(eur_kr,breaks=100,xlab=expression("KR"[2]),main="",xlim=c(-1,4));abline(v=0,lw=3)
 
-# scatter-quantile
+# scatter-quantile w/ hexbins
 sq_sk2 = qn_quant_plot(eur, f=sk2, ylab=expression(SK[2]))
 sq_kr2 = qn_quant_plot(eur, f=kr2, ylab=expression(KR[2]))
+
+# stacked histograms of gene expression quantiles
+qks_0_5 = quant_kr_sk(eur, th=0.5)
+qks_0_95 = quant_kr_sk(eur, th=0.95)
+
+# moment var per Q_n quantile
+
 
 # quantile summary stats
 eur_sk_med = q_var_moment(eur, f=sk2, g=median)
