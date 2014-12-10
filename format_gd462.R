@@ -48,7 +48,6 @@ make_dupe_data = function(d_fn = "GD660.GeneQuantRPKM.txt")
     for (i in 1:length(dupeidx)) {
         j = as.integer(dupeidx[i])
         y[,i] = log(d[,j]/d[,(j+1)])
-        print(n[ c(j,j+1) ])
     }
     colnames(y) = dupenames
     rownames(y) = r
