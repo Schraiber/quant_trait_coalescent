@@ -28,6 +28,32 @@ make_data = function(d_fn = "GD660.GeneQuantRPKM.txt", unique=T)
     return(d)
 }
 
+make_dupe_data = function(d_fn = "GD660.GeneQuantRPKM.txt")
+{
+    # read data
+    d = read.csv(d_fn, header=T, sep="\t",as.is=T)
+    d = d[,-c(2,3,4)]
+    n = colnames(d)[-1]
+
+    # format individual ID
+    n = unlist(lapply(n, function(x) { y=unlist(strsplit(x,'.',fixed=T))[1];return(y) }))
+    r = d$TargetID
+
+    # take difference of pairs of two
+    dupecount = match(n, n)
+    dupetable = as.data.frame( table(dupecount) )
+    dupeidx = as.numeric(as.character( dupetable[dupetable$Freq > 1,]$dupecount ) )
+    dupenames = n[dupeidx]
+    y = matrix(0,ncol=length(dupenames),nrow=nrow(d))
+    for (i in 1:length(dupeidx)) {
+        j = as.integer(dupeidx[i])
+        y[,i] = log(d[,j])-log(d[,(j+1)])
+    }
+    colnames(y) = dupenames
+    rownames(y) = r
+    return(y)
+}
+
 filter_data = function(d,cutoff=-5,f=1.0,filter=TRUE)
 {
     d[,2:ncol(d)] = log(d[,2:ncol(d)])
@@ -201,7 +227,7 @@ qn_quant_plot = function(d, f=sk2, ylab, xlab=expression(Q[n])) {
     return(ret)
 }
 
-quant_kr_sk = function(d,th=.5) {
+quant_kr_sk = function(d,th=.5,dq=0.02) {
 
     ret = list()
 
@@ -211,7 +237,7 @@ quant_kr_sk = function(d,th=.5) {
     d_kr = abs(apply(d,1,function(x) { kr2(x[!is.na(x)]) } ))
 
     # get traits per Qn quantile
-    qnt_qn = quantile(d_Qn,probs=seq(0.0,1.0,0.1))
+    qnt_qn = quantile(d_Qn,probs=seq(0.0,1.0,dq))
     qnt_sk = quantile(d_sk,probs=th)
     qnt_kr = quantile(d_kr,probs=th)
 
@@ -224,35 +250,42 @@ quant_kr_sk = function(d,th=.5) {
         tmp_kr = d_kr[x]
         lbl = sapply(1:length(x), function(y) {
         if (tmp_sk[y] < qnt_sk && tmp_kr[y] < qnt_kr) {
-        return(1)
+            return(1)
         } else if (tmp_sk[y] < qnt_sk && tmp_kr[y] >= qnt_kr) {
-        return(2)
+            return(2)
         } else if (tmp_sk[y] >= qnt_sk && tmp_kr[y] < qnt_kr) {
-        return(3)
+            return(3)
         } else if (tmp_sk[y] >= qnt_sk && tmp_kr[y] >= qnt_kr) {
-        return(4)
+            return(4)
         }})
         v = sapply(1:4, function(y) { sum(lbl==y) })
         qnt_elt[i,] = v
     }
-    v = data.frame(quantile=1:(n_bins-1),s0k0=qnt_elt[,1], s0k1=qnt_elt[,2], s1k0=qnt_elt[,3], s1k1=qnt_elt[,4])
-    mv = melt(qks,id=c("quantile"))
+    v = data.frame(quantile=(1:(n_bins-1))*dq*100-1,s0k0=qnt_elt[,1], s0k1=qnt_elt[,2], s1k0=qnt_elt[,3], s1k1=qnt_elt[,4])
+    mv = melt(v,id=c("quantile"))
     
     #txt_lbls = c(   paste("S<",th,",K<",th,sep=""),paste("S<",th,",K>",th,sep=""),paste("S>",th,",K<",th,sep=""),paste("S>",th,",K>",th,sep=""))
-    txt_lbls = c("S-K-","S-K+","S+K-","S+K+")
+    #txt_lbls = c("S-K-","S-K+","S+K-","S+K+")
+    txt_lbls = c("symmetric, mesokurtic","symmetric, non-mesokurtic","skewed, mesokurtic","skewed, non-mesokurtic")
+
     mn_qnt_qn_txt = as.character(sapply(2:n_bins, function(y) { mean(qnt_qn[(y-1):y]) } ))
-    dev.new()
-    p = ggplot(mv,aes(x=quantile,y=value,fill=variable)) + geom_bar(stat="identity") + scale_fill_discrete(labels=txt_lbls) + theme(axis.ticks.x=element_blank(), axis.text.x=element_blank()) + xlab(expression(Q[n] ~ quantiles)) + ylab(No. ~ SK[2] ~ and ~ KR[2] ~ matches) + ggtitle(paste("Moment quantiles (>",th,")",sep="")) + geom_hline(yintercept=c(th*th*sum(v[1,])),linetype="dashed")
+    p = ggplot(mv,aes(x=quantile,y=value,fill=variable)) +
+        geom_area(position="stack") +
+        scale_fill_discrete(name="",labels=txt_lbls) +
+        scale_x_continuous(breaks=seq(0,100,10)) +
+        xlab(expression(Q[n] ~ quantiles)) +
+        ylab(No. ~ SK[2] ~ and ~ KR[2] ~ matches) +
+        ggtitle(paste(th*100,"th skewness and kurtosis quantiles",sep="")) +
+        geom_hline(yintercept=c(th*th*sum(v[1,])),linetype="dashed") +
+        guides(fill=guide_legend(reverse=T))
     print(p)
 
     return(v)
 }
-
-
 # d: data frame, traits x individuals
 # f: function you want to compare vs Qn quantiles -- e.g. sk2, kr2
 # g: function you want to use to summarize f-quantile results -- e.g. var, median
-q_var_moment2 = function(d) {
+q_var_moment2 = function(d,dq=0.02) {
 
     # moments from data
     d_Qn = apply(d,1,function(x) { Qn(x[!is.na(x)]) } )
@@ -260,38 +293,52 @@ q_var_moment2 = function(d) {
     d_kr = apply(d,1,function(x) { kr2(x[!is.na(x)]) } )
 
     # sim data
-    sim = data.frame( matrix( 0, nrow(d), ncol(d) ) )
-    for (i in 1:nrow(d)) {
-        print(i)
+    dr = 1
+    sim = data.frame( matrix( 0, nrow(d)/dr, ncol(d) ) )
+    for (i in 1:(nrow(d)/dr)) {
         sim[i,] = rnorm(ncol(d), 0., d_Qn[i])
     }
     d_sk_null = apply(sim,1,function(x) { sk2(x) } )
     d_kr_null = apply(sim,1,function(x) { kr2(x) } )
 
     # get traits per Qn quantile
-    qnt_val = quantile(d_Qn,probs=seq(0.0,1.0,0.1))
+    qnt_val = quantile(d_Qn,probs=seq(0.0,1.0,dq))
     n_bins = length(qnt_val)
     qnt_elt = matrix(c(0),n_bins-1,5)
     for (i in 1:(n_bins-1)) {
         x = intersect(which(d_Qn > qnt_val[i]), which(d_Qn <= qnt_val[i+1]))
-        qnt_elt[i,] = c(i,var(d_sk[x]), var(d_kr[x]), var(d_sk_null[x]), var(d_kr_null[x]))
+        yy = as.integer(x/dr)
+        qnt_elt[i,] = c(i*dq*100-1,var(d_sk[x]), var(d_kr[x]), var(d_sk_null[yy]), var(d_kr_null[yy]))
     }
 
-    df = data.frame(n=qnt_elt[,1],sk=qnt_elt[,2],kr=qnt_elt[,3],skn=qnt_elt[,4],krn=qnt_elt[,5])
-    #p = ggplot(df, aes(df[,1])) + geom_line(aes(y=qnt_elt[,2]), colour="sk2") + geom_line(aes(y=qnt_elt[,3]),colour="kr2")
-    p = ggplot(df, aes(x=n)) + geom_line(aes(y=sk,colour="sk2")) + geom_line(aes(y=kr,colour="kr2")) + geom_line(aes(y=skn,colour="sk2"),linetype="dashed") + geom_line(aes(y=krn,colour="kr2"),linetype="dashed")
+    df = data.frame(    n=qnt_elt[,1],
+                        sk=qnt_elt[,2],
+                        kr=qnt_elt[,3],
+                        skn=qnt_elt[,4],
+                        krn=qnt_elt[,5])
+
+    p = ggplot(df, aes(x=n)) + 
+        geom_line(aes(y=sk,colour="sk2",linetype="eur")) + 
+        geom_line(aes(y=kr,colour="kr2",linetype="eur")) + 
+        geom_line(aes(y=skn,colour="sk2",linetype="sim")) +
+        geom_line(aes(y=krn,colour="kr2",linetype="sim")) +
+        scale_colour_discrete(name="Moment", breaks=c("sk2","kr2"), labels=c(expression(SK[2]),expression(KR[2]))) + 
+        scale_linetype_discrete(name="Data",breaks=c("eur","sim"),labels=c("empirical","simulated")) + 
+        scale_x_continuous(breaks=seq(0,100,10)) +
+        xlab(expression(Q[n] ~ quantiles)) +
+        ylab("Sample moment variance")
     print(p)
+
     return(qnt_elt)
 }
-
-
-# workflow
-if (false)
+#
+## workflow
+if (FALSE) 
 {
 # make data
 k=make_key()
-dd=make_data()
-df=filter_data(dd)
+d=make_data()
+df=filter_data(d)
 eur=make_pop_data(k,df,not=T)
 eur=eur[,-1] # crazy outlier
 yri=make_pop_data(k,df)
@@ -305,7 +352,7 @@ eurss_sw_fdr_idx = get_sw_sig(eur, qval=0.05, ndrop=, ns=ncol(yri))
 eur_sk = apply(eur,1,sk2)
 eur_kr = apply(eur,1,kr2)
 eur_qn = apply(eur,1,Qn)
-plot(eur_qn,eur_sk,col="gray")
+#plot(eur_qn,eur_sk,col="gray")
 
 # Wilcox test
 #hist(eur_sk,breaks=100,xlab=expression("SK"[2]),main="");abline(v=0,lw=3)
@@ -319,71 +366,78 @@ sq_kr2 = qn_quant_plot(eur, f=kr2, ylab=expression(KR[2]))
 qks_0_5 = quant_kr_sk(eur, th=0.5)
 qks_0_95 = quant_kr_sk(eur, th=0.95)
 
-# moment var per Q_n quantile
+# quantile for var of moments
+qvm2 = q_var_moment2(eur)
 
-
-# quantile summary stats
-eur_sk_med = q_var_moment(eur, f=sk2, g=median)
-eur_sk_var = q_var_moment(eur, f=sk2, g=var)
-eur_kr_med = q_var_moment(eur, f=kr2, g=median)
-eur_kr_var = q_var_moment(eur, f=kr2, g=var)
-
-quant_ss(eur_sk_var, eur_kr_var)
-
-
-# index ordered estimates
-order_sk_idx = order(eur_sk)
-order_kr_idx = order(eur_kr)
-
-plot(eur_kr_var$d, col=1, type="l", ylim=c(-0.1,0.1))
-lines(eur_kr_var$sim, col=1, lty=2)
-lines(eur_sk_var$d, col=2, lty=2)
-lines(eur_sk_var$sim, col=2, lty=2)
-lines(eur_kr_med$d, col=3, lty=2)
-lines(eur_kr_med$sim, col=3, lty=2)
-lines(eur_sk_med$d, col=4, lty=2)
-lines(eur_sk_med$sim, col=4, lty=2)
-
-# dip discoveries
-eur_dip=get_dip_pvals(eur,drop_outlier=F,ncores=4)
-eur_dip_fdr = fdrtool(0-eur_dip$dip, statistic="pvalue", cutoff.method="fndr")
-eur_dip2 = c(dipp.tantrum(eur,dip(eur),M=nrow(eur)*1.5)$p.value)
-
-
-# compare kurt
-
-
-
-# compare GWAS
-
-
-# robust
-
-
-# TODO
-# 1) SW test, rampant non-normality
-# 2) skew/kurt wrt Qn, increases
-# 3) multimodality, dip test
-# 4) re-check GWAS+dip enrichment
-# 5) example histograms
-
+# check w/in variation
+yy = make_dupe_data()[rownames(df),]
+yy = log(abs(yy))
+fy = fy[,-1] # drop outlier, 168 pairs
+fy = apply(fy,2,function(x) { x/eur_qn })
 
 
 }
 
 
-
-#eur_sw = list()
-#for (i in 6:6) { eur_sw[[i]] = get_sw_pvals(eur,T,n=i) }
-#lapply(eur_sw, function(x) { sum(x<0.005) })
-#yri_sw = list()
-#for (i in 10:10) { yri_sw[[i]] = get_sw_pvals(yri,T,n=i) }
-#lapply(yri_sw, function(x) { sum(x<0.005) })
-# Drop most outliers as possible
-# idx 7 has 4700 discoveries
-# idx 10 has 636 discoveries
-
-#eur_sw_fdr = fdrtool(eur_sw[[6]]$sw,statistic=c("pvalue"),cutoff.method=c("fndr"))
-#yri_sw_fdr = fdrtool(yri_sw[[10]]$sw,statistic=c("pvalue"),cutoff.method=c("fndr"))
-#eur_sw_fdr_idx = which( eur_sw_fdr$qval < 0.005)
-#yri_sw_fdr_idx = which( yri_sw_fdr$qval < 0.005)
+## quantile summary stats
+#eur_sk_med = q_var_moment(eur, f=sk2, g=median)
+#eur_sk_var = q_var_moment(eur, f=sk2, g=var)
+#eur_kr_med = q_var_moment(eur, f=kr2, g=median)
+#eur_kr_var = q_var_moment(eur, f=kr2, g=var)
+#
+## index ordered estimates
+#order_sk_idx = order(eur_sk)
+#order_kr_idx = order(eur_kr)
+#
+#plot(eur_kr_var$d, col=1, type="l", ylim=c(-0.1,0.1))
+#lines(eur_kr_var$sim, col=1, lty=2)
+#lines(eur_sk_var$d, col=2, lty=2)
+#lines(eur_sk_var$sim, col=2, lty=2)
+#lines(eur_kr_med$d, col=3, lty=2)
+#lines(eur_kr_med$sim, col=3, lty=2)
+#lines(eur_sk_med$d, col=4, lty=2)
+#lines(eur_sk_med$sim, col=4, lty=2)
+#
+## dip discoveries
+#eur_dip=get_dip_pvals(eur,drop_outlier=F,ncores=4)
+#eur_dip_fdr = fdrtool(0-eur_dip$dip, statistic="pvalue", cutoff.method="fndr")
+#eur_dip2 = c(dipp.tantrum(eur,dip(eur),M=nrow(eur)*1.5)$p.value)
+#
+#
+## compare kurt
+#
+#
+#
+## compare GWAS
+#
+#
+## robust
+#
+#
+## TODO
+## 1) SW test, rampant non-normality
+## 2) skew/kurt wrt Qn, increases
+## 3) multimodality, dip test
+## 4) re-check GWAS+dip enrichment
+## 5) example histograms
+#
+#
+#
+#}
+#
+#
+#
+##eur_sw = list()
+##for (i in 6:6) { eur_sw[[i]] = get_sw_pvals(eur,T,n=i) }
+##lapply(eur_sw, function(x) { sum(x<0.005) })
+##yri_sw = list()
+##for (i in 10:10) { yri_sw[[i]] = get_sw_pvals(yri,T,n=i) }
+##lapply(yri_sw, function(x) { sum(x<0.005) })
+## Drop most outliers as possible
+## idx 7 has 4700 discoveries
+## idx 10 has 636 discoveries
+#
+##eur_sw_fdr = fdrtool(eur_sw[[6]]$sw,statistic=c("pvalue"),cutoff.method=c("fndr"))
+##yri_sw_fdr = fdrtool(yri_sw[[10]]$sw,statistic=c("pvalue"),cutoff.method=c("fndr"))
+##eur_sw_fdr_idx = which( eur_sw_fdr$qval < 0.005)
+##yri_sw_fdr_idx = which( yri_sw_fdr$qval < 0.005)
