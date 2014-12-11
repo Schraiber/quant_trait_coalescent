@@ -44,10 +44,13 @@ make_dupe_data = function(d_fn = "GD660.GeneQuantRPKM.txt")
     dupetable = as.data.frame( table(dupecount) )
     dupeidx = as.numeric(as.character( dupetable[dupetable$Freq > 1,]$dupecount ) )
     dupenames = n[dupeidx]
+    print(dupeidx)
+    print(dupenames)
     y = matrix(0,ncol=length(dupenames),nrow=nrow(d))
-    for (i in 1:length(dupeidx)) {
+    for (i in 1:10) { # { length(dupeidx)) {
         j = as.integer(dupeidx[i])
-        y[,i] = log(d[,j]/d[,(j+1)])
+        print(c(j,dupenames[j],n[j],n[j+1],d[6,(j+1):(j+2)]))
+        y[,i] = log(d[,(j+1)]) - log(d[,(j+2)])
     }
     colnames(y) = dupenames
     rownames(y) = r
@@ -371,9 +374,10 @@ qvm2 = q_var_moment2(eur)
 
 # check w/in variation
 yy = make_dupe_data()[rownames(df),]
-yy = log(abs(yy))
 fy = fy[,-1] # drop outlier, 168 pairs
-fy = apply(fy,2,function(x) { x/eur_qn })
+fy = apply(fy,2,function(x) { x/eur_qn }) # divide each within-ind trait by among-ind variance
+kry = apply(fy,2,kr2) # kurtosis of within-ind traits for each individual
+sky = apply(fy,2,sk2) # skewness of within-ind traits for each individual
 
 
 }
