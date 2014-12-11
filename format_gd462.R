@@ -32,28 +32,39 @@ make_dupe_data = function(d_fn = "GD660.GeneQuantRPKM.txt")
 {
     # read data
     d = read.csv(d_fn, header=T, sep="\t",as.is=T)
-    d = d[,-c(2,3,4)]
-    n = colnames(d)[-1]
+    r = d[,1]
+    d = d[,-c(1,2,3,4)]
+    n = colnames(d)
 
     # format individual ID
     n = unlist(lapply(n, function(x) { y=unlist(strsplit(x,'.',fixed=T))[1];return(y) }))
-    r = d$TargetID
 
     # take difference of pairs of two
     dupecount = match(n, n)
     dupetable = as.data.frame( table(dupecount) )
     dupeidx = as.numeric(as.character( dupetable[dupetable$Freq > 1,]$dupecount ) )
     dupenames = n[dupeidx]
-    print(dupeidx)
-    print(dupenames)
     y = matrix(0,ncol=length(dupenames),nrow=nrow(d))
-    for (i in 1:10) { # { length(dupeidx)) {
+    for (i in 1:length(dupeidx)) {
         j = as.integer(dupeidx[i])
-        print(c(j,dupenames[j],n[j],n[j+1],d[6,(j+1):(j+2)]))
-        y[,i] = log(d[,(j+1)]) - log(d[,(j+2)])
+        y[,i] = log(d[,j]) - log(d[,j+1])
     }
+    print(colnames(d))
+    print(dupenames)
+    print(dupeidx)
+    print(y[6,])
     colnames(y) = dupenames
     rownames(y) = r
+
+    ret = list()
+    ret$y = y
+    ret$d = d
+    ret$dn = dupenames
+    ret$di = dupeidx
+    ret$dt = dupetable
+    ret$dc = dupecount
+    return(ret)
+
     return(y)
 }
 
