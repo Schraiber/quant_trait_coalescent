@@ -4,23 +4,23 @@ This R package simulates quantitative traits under simple scenarios, allowing th
 
 Additionally, the package provides tools to characterize the resulting quantitative trait distributions, with particular interest paid to robust moment estimation (variance, skewness, and kurtosis estimators), non-normality tests, and non-unimodality tests.
 
-# Use
+# Using `serial_coal.R`
 
 ## Mutational kernels
 
 Upon mutation, the process draws quantitative trait effect sizes from a provided mutational kernel. Supported kernels:
 
-```rnorm``` is the symmetric normal distribution
+`rnorm` is the symmetric normal distribution
 
-```rsn``` is the skewed normal distribution
+`rsn` is the skewed normal distribution
 
-```rlaplace``` is the Laplace (the symmetric exponential) exponential distribution
+`rlaplace` is the Laplace (the symmetric exponential) exponential distribution
 
-```rstable`` is the alpha-stable distribution
+`rstable` is the alpha-stable distribution
 
 ## Simulation
 
-The function ```sim_qts``` simulates quantitative traits. This function relies on having ```ms``` installed (http://home.uchicago.edu/rhudson1/source/mksamples.html). Descriptions and default parameter values for ```sim_qts``` are given below. The function returns a list containing the simulation results.
+The function `sim_qts` simulates quantitative traits. This function relies on having `ms` installed (http://home.uchicago.edu/rhudson1/source/mksamples.html). Descriptions and default parameter values for `sim_qts` are given below. The function returns a list containing the simulation results.
 
 ```
 # default values
@@ -44,7 +44,7 @@ results = sim_qts(nrep=num_replicates,
 
 ## Moments
 
-The ```get_moment``` function computes the specified sample moment from ```sim_qts``` results.
+The `get_moment` function computes the specified sample moment from `sim_qts` results.
 
 ```
 m           = 4     # 2:variance, 3:skewness, 4:kurtosis
@@ -61,7 +61,7 @@ moment_results = get_moment(results,
                             central=central)
 ```
 
-The ```get_expected_moment``` function compues the expected moment given the process parameters
+The `get_expected_moment` function compues the expected moment given the process parameters
 
 ```
 moment_expectation= get_expected_moment(kernel=kernel,
@@ -72,6 +72,8 @@ moment_expectation= get_expected_moment(kernel=kernel,
                                         skew=0,
                                         moment=4)
 ```
+
+`plot_all_moments(moment_results)` plots the sampled and expected moments.
 
 
 # Citation
