@@ -11,8 +11,11 @@ Additionally, the package provides tools to characterize the resulting quantitat
 Upon mutation, the process draws quantitative trait effect sizes from a provided mutational kernel. Supported kernels:
 
 ```rnorm``` is the symmetric normal distribution
+
 ```rsn``` is the skewed normal distribution
+
 ```rlaplace``` is the Laplace (the symmetric exponential) exponential distribution
+
 ```rstable`` is the alpha-stable distribution
 
 ## Simulation
@@ -30,7 +33,13 @@ kernel          = rnorm              #          drawing mutational effects from 
 scale           = 1                  #          satisfying an eff. process scale (see paper)
 ncores          = 16                 #          using mclapply with ncores processors
 ms_exec         = "~/apps/msdir/ms"  #          calling "ms" using ms_exec
-results = sim_qts(nrep=num_replicates, loc=num_loci, sam=num_samples, npop=num_individuals, kernel=kernel, scale=scale, ms_exec=ms_exec)
+results = sim_qts(nrep=num_replicates,
+                  loc=num_loci,
+                  sam=num_samples,
+                  npop=num_individuals,
+                  kernel=kernel,
+                  scale=scale,
+                  ms_exec=ms_exec)
 ```
 
 ## Moments
@@ -44,13 +53,24 @@ use_moments = TRUE  # TRUE:  use the moment function from the moments package
 central     = TRUE  # TRUE:  use central moments (only works if use_moments enabled)
                     # FALSE: use moments about zero 
 
-moment_results = get_moment(results, loc=num_loci, sam=num_samples, moment=m, use_moments=use_moments, central=central)
+moment_results = get_moment(results,
+                            loc=num_loci,
+                            sam=num_samples,
+                            moment=m,
+                            use_moments=use_moments,
+                            central=central)
 ```
 
 The ```get_expected_moment``` function compues the expected moment given the process parameters
 
 ```
-get_expected_moment(kernel=kernel, loc=num_loci, sam=num_samples, theta=theta, sigma=1, skew=0, moment=4)
+moment_expectation= get_expected_moment(kernel=kernel,
+                                        loc=num_loci,
+                                        sam=num_samples,
+                                        theta=theta,
+                                        sigma=1,
+                                        skew=0,
+                                        moment=4)
 ```
 
 
