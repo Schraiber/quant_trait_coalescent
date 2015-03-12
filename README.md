@@ -73,7 +73,24 @@ moment_expectation= get_expected_moment(kernel=kernel,
                                         moment=4)
 ```
 
-`plot_all_moments(moment_results)` plots the sampled and expected moments.
+Finally, calling `plot_all_moments(moment_results)` plots the sampled and expected moments.
+
+
+## Multimodality
+
+The package usese the `diptest` package to test for multimodality. The `batch_results` function computes p-values where the null hypothesis is the sample data are unimodally distributed.
+
+```
+batch_results = batch_diptest(results,
+                              loc=num_loci,
+                              sam=num_samples,
+                              nrep=num_replicates,
+                              p=0.05)               # p-value for rejection
+
+```
+
+These results may be plotted using `plot_diptest(batch_results)`.
+
 
 
 # Citation
