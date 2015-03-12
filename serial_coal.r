@@ -21,7 +21,7 @@ library(fpc)
 ###################
 #  simulate data  #
 ###################
-sim_qts = function(nrep=50,loc=1:8,sam=1:8,npop=2000,theta=.1,kernel=rnorm,scale=1,alpha=2.0,alpha_sn=0.0,xi_sn=0.0,ncores=16)
+sim_qts = function(nrep=50,loc=1:8,sam=1:8,npop=2000,theta=.1,kernel=rnorm,scale=1,alpha=2.0,alpha_sn=0.0,xi_sn=0.0,ncores=16,ms_exec="~/apps/msdir/ms")
 {
     # loci
     b = list()
