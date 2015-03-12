@@ -13,18 +13,24 @@ make_key = function(k_fn = "hgdp_key.txt")
 make_data = function(d_fn = "GD660.GeneQuantRPKM.txt", unique=T)
 {
     d = read.csv(d_fn, header=T, sep="\t",as.is=T)
-    d = d[,-c(2,3,4)]
+    r = d[,1]
+    d = d[,-c(1,2,3,4)]
     n = colnames(d)
     if (unique)
     {
        n = unlist(lapply(n, function(x) { y=unlist(strsplit(x,'.',fixed=T))[1];return(y) }))
     }
-    r = d$TargetID
+    #r = d$TargetID
     d = matrix(as.numeric(unlist(d[,1:ncol(d)])),ncol=ncol(d))
     colnames(d) = n
     rownames(d) = r
-    d = d[,!duplicated(n)]
-    d = d[,2:ncol(d)]
+    #d = d[,!duplicated(n)]
+    idx = which( sapply(n,function(x){grepl("\\.1\\.M",x)}) )
+    print(idx)
+    #colnames(d)[!idx]
+    print(colnames(d)[!idx])
+    d = d[,!idx]
+    d = d[,1:ncol(d)]
     return(d)
 }
 
@@ -45,14 +51,17 @@ make_dupe_data = function(d_fn = "GD660.GeneQuantRPKM.txt")
     dupeidx = as.numeric(as.character( dupetable[dupetable$Freq > 1,]$dupecount ) )
     dupenames = n[dupeidx]
     y = matrix(0,ncol=length(dupenames),nrow=nrow(d))
-    for (i in 1:length(dupeidx)) {
+    for (i in 1:10) { # length(dupeidx)) {
+
         j = as.integer(dupeidx[i])
-        y[,i] = log(d[,j]) - log(d[,j+1])
+        y[1:10,i] = log(d[1:10,j]) - log(d[1:10,j+1])
+        print(c(i,j,dupeidx[i],colnames(d)[j], colnames(d)[j+1]))
+        print(y[1:10,i])
+        print(d[1:10,j])
+        print(d[1:10,j+1])
+        #u = rbinom(nrow(y),1,.5)*2 - 1
+        #y[,i] = u * y[,i]
     }
-    print(colnames(d))
-    print(dupenames)
-    print(dupeidx)
-    print(y[6,])
     colnames(y) = dupenames
     rownames(y) = r
 
