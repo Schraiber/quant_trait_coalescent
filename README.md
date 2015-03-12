@@ -78,6 +78,6 @@ moment_expectation= get_expected_moment(kernel=kernel,
 
 For more details about the underlying theory, please see
 
-Schraiber, J. G. and Landis M. L. Sensitivity of quantitative traits to mutational effects and number of loci.
+Schraiber, J. G. and Landis, M. L. Sensitivity of quantitative traits to mutational effects and number of loci.
 (link when available)
 
