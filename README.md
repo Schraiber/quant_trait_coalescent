@@ -6,6 +6,15 @@ Additionally, the package provides tools to characterize the resulting quantitat
 
 # Using `serial_coal.R`
 
+## Installation
+
+Call `source("serial_coal.R")` to load the software. You will be notified if you are missing required packages. 
+
+To install all required packages in one command:
+```
+install.packages(c("ape","diptest","e1071","fBasics","fdrtool","fpc","geiger","ggplot2","grid","gridExtra","gsl","gtable","lattice","MASS","moments","outliers","parallel","PASWR","plyr","reshape2","robustbase","scales","sn","splines","stabledist","stats4","timeDate","timeSeries","VGAM"))
+```
+
 ## Mutational kernels
 
 Upon mutation, the process draws quantitative trait effect sizes from a provided mutational kernel. Supported kernels:
