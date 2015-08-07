@@ -556,15 +556,17 @@ fourth_moment_kernel = function(theta,sigma,L,kernel,skew=0) {
     3/4*L^2*theta^2*mu2^2+1/4*L*theta*(2*theta*mu2^2+mu4)
 }
 
-get_expected_moment = function(kernel, loc=1:8, sam=10:10, theta=2, sigma=1, skew=0, moment=4)
+get_expected_moment = function(kernel, loc=1:8, theta=2, sigma=1, skew=0, moment=4)
 {
     moment_fn=c(NA, second_moment_kernel, third_moment_kernel, fourth_moment_kernel)[[moment]]
-    v=c()
+    #v=c()
     #nloc=2^(max(loc)-1)
     nloc=10*(max(loc))
     locseq=seq(0,max(loc)-1,by=0.1)
-    for (i in 1:length(locseq)) v[i]=moment_fn(theta,sigma,2^(locseq[i]),kernel,skew)
-    #for (i in loc) v[i]=moment_fn(theta,sigma,2^(i-1),kernel,skew)
+    v = list(moment=c(),log2loc=locseq)
+    for (i in 1:length(locseq)) {
+        v$moment[i]=moment_fn(theta,sigma,2^(locseq[i]),kernel,skew)
+    }
     return(v)
 }
 
@@ -578,7 +580,7 @@ combine_moments = function(...,loc=1:8,sam=10:10,theta=2,sigma=1,skew=0,moment=4
     for (k in 1:nargs)
     {
         write(sprintf("Getting simulated moment: %s (%d of %d)",input_list[[k]]$kernel_str, k, nargs),"")
-        v = get_moment(b=input_list[[k]],loc=loc,sam=sam,moment=moment)
+        v = get_moment(b=input_list[[k]],loc=loc,sam=sam,moment=moment)$moment
         for (i in loc)
         {
             moment_vals[nloc*(k-1)+i,1]=paste("simulated_",input_list[[k]]$kernel_str,sep="")
@@ -593,7 +595,7 @@ combine_moments = function(...,loc=1:8,sam=10:10,theta=2,sigma=1,skew=0,moment=4
     for (k in 1:nargs)
     {
         write(sprintf("Getting analytical moment: %s (%d of %d)",input_list[[k]]$kernel_str, k, nargs),"")
-        ev = get_expected_moment(kernel=input_list[[k]]$kernel_fn,loc=loc,sam=sam,theta=theta,sigma=sigma,moment=moment,skew=input_list[[k]]$skew)
+        ev = get_expected_moment(kernel=input_list[[k]]$kernel_fn,loc=loc,theta=theta,sigma=sigma,moment=moment,skew=input_list[[k]]$skew)
         nev=length(ev)
         for (i in 1:length(ev))
         {
