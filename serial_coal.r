@@ -39,23 +39,23 @@ sim_qts = function(nrep=50,loc=1:8,sam=1:8,npop=2000,theta=.1,kernel=rnorm,scale
             if (identical(kernel,rnorm))
             {
                 print(c(n,m))
-                b[[n]][[m]] = batch_ms(nrep=nrep,spop=2^m,npop=npop,nloci=2^n_,ncores=ncores,theta=theta,kernel=kernel,sd=scale_per_locus)
+                b[[n]][[m]] = batch_ms(nrep=nrep,spop=2^m,npop=npop,nloci=2^n_,ncores=ncores,theta=theta,kernel=kernel,sd=scale_per_locus,ms_path=ms_exec)
             }
             else if (identical(kernel,rsn))
             {
                 delta_sn = alpha_sn/sqrt(1+alpha_sn^2)
                 omega_sn = scale_per_locus / sqrt(1-(2*delta_sn^2)/pi)
                 xi_0_sn = -(omega_sn * delta_sn * sqrt(2/pi))
-                b[[n]][[m]] = batch_ms(nrep=nrep,spop=2^m,npop=npop,nloci=2^n_,ncores=ncores,theta=theta,kernel=kernel,xi=xi_0_sn+xi_sn,omega=omega_sn,alpha=alpha_sn)
+                b[[n]][[m]] = batch_ms(nrep=nrep,spop=2^m,npop=npop,nloci=2^n_,ncores=ncores,theta=theta,kernel=kernel,xi=xi_0_sn+xi_sn,omega=omega_sn,alpha=alpha_sn,ms_path=ms_exec)
             }
             else if (identical(kernel,rlaplace))
             {
                 print(c(n,m))
-                b[[n]][[m]] = batch_ms(nrep=nrep,spop=2^m,npop=npop,nloci=2^n_,ncores=ncores,theta=theta,kernel=kernel,location=0,scale=scale_per_locus/sqrt(2))
+                b[[n]][[m]] = batch_ms(nrep=nrep,spop=2^m,npop=npop,nloci=2^n_,ncores=ncores,theta=theta,kernel=kernel,location=0,scale=scale_per_locus/sqrt(2),ms_path=ms_exec)
             }
             else if (identical(kernel,rstable))
             {
-                b[[n]][[m]] = batch_ms(nrep=nrep,spop=2^m,npop=npop,nloci=2^n_,ncores=ncores,theta=theta,kernel=kernel,gamma=scale_per_locus,alpha=alpha,beta=0)
+                b[[n]][[m]] = batch_ms(nrep=nrep,spop=2^m,npop=npop,nloci=2^n_,ncores=ncores,theta=theta,kernel=kernel,gamma=scale_per_locus,alpha=alpha,beta=0,ms_path=ms_exec)
             }
             else
             {
@@ -421,17 +421,17 @@ plot_all_ksfp = function(k1,k2,k3)
 # compute moments #
 ###################
 
-get_moment = function(b, loc=1:7, sam=10:10, moment=4, use_moments=TRUE, central=TRUE)
+get_moment = function(b, loc=1:7, sam=10:10, moment=4, use_moments=TRUE,central=TRUE)
 {
     vals = c()
 
-    olveyLoc=TRUE
+    byLoc=TRUE
     if (length(loc)==1 && length(sam)>1)
         byLoc=FALSE
 
-    nreps=sum(names(b[[loc[2]]][[sam[1]]])=="")
+    nreps=sum(names(b[[loc[1]]][[sam[1]]])=="")
     if (nreps==0)
-        nreps=length(b[[loc[2]]][[sam[1]]])
+        nreps=length(b[[loc[1]]][[sam[1]]])
     reps = 1:nreps
     for (i in loc) {
         for (j in sam) {
@@ -439,7 +439,7 @@ get_moment = function(b, loc=1:7, sam=10:10, moment=4, use_moments=TRUE, central
             for (k in reps) {
                 if (use_moments)
                 {
-                    tmp[k] = moment(b[[i]][[j]][[k]]$trait,order=moment,central=central)
+                    tmp[k] = moments::moment(b[[i]][[j]][[k]]$trait,order=moment,central=central)
                 }
                 else if (moment == 2 && !use_moments) {
                     tmp[k] = var(b[[i]][[j]][[k]]$trait)
@@ -520,7 +520,7 @@ sn_kurtosis = function(omega=1,delta=1) {
 
 #in all these functions, sigma is the TARGET sigma
 second_moment_kernel = function(theta,sigma,...) {
-    1/2*theta*sigma^2
+    1/2*theta*L*sigma^2
 }
 
 third_moment_kernel = function(theta,sigma,L,kernel,skew=0) {
