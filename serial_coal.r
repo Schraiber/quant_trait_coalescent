@@ -21,7 +21,18 @@ library(fpc)
 ###################
 #  simulate data  #
 ###################
-sim_qts = function(nrep=50,loc=1:8,sam=1:8,npop=2000,theta=.1,kernel=rnorm,scale=1,alpha=2.0,alpha_sn=0.0,xi_sn=0.0,ncores=16,ms_exec="~/apps/msdir/ms")
+sim_qts = function(nrep=50,
+                   loc=1:8,
+                   sam=1:8,
+                   npop=2000,
+                   theta=.1,
+                   kernel=rnorm,
+                   scale=1,
+                   alpha=2.0,
+                   alpha_sn=0.0,
+                   xi_sn=0.0,
+                   ncores=16,
+                   ms_exec="~/apps/msdir/ms")
 {
     # loci
     b = list()
@@ -38,24 +49,58 @@ sim_qts = function(nrep=50,loc=1:8,sam=1:8,npop=2000,theta=.1,kernel=rnorm,scale
             scale_per_locus = scale/((2^n_)^(1/alpha))
             if (identical(kernel,rnorm))
             {
-                print(c(n,m))
-                b[[n]][[m]] = batch_ms(nrep=nrep,spop=2^m,npop=npop,nloci=2^n_,ncores=ncores,theta=theta,kernel=kernel,sd=scale_per_locus)
+                b[[n]][[m]] = batch_ms(nrep=nrep,
+                                       spop=2^m,
+                                       npop=npop,
+                                       nloci=2^n_,
+                                       ncores=ncores,
+                                       theta=theta,
+                                       kernel=kernel,
+                                       sd=scale_per_locus,
+                                       ms_exec=ms_exec)
             }
             else if (identical(kernel,rsn))
             {
                 delta_sn = alpha_sn/sqrt(1+alpha_sn^2)
                 omega_sn = scale_per_locus / sqrt(1-(2*delta_sn^2)/pi)
                 xi_0_sn = -(omega_sn * delta_sn * sqrt(2/pi))
-                b[[n]][[m]] = batch_ms(nrep=nrep,spop=2^m,npop=npop,nloci=2^n_,ncores=ncores,theta=theta,kernel=kernel,xi=xi_0_sn+xi_sn,omega=omega_sn,alpha=alpha_sn)
+                b[[n]][[m]] = batch_ms(nrep=nrep,
+                                       spop=2^m,
+                                       npop=npop,
+                                       nloci=2^n_,
+                                       ncores=ncores,
+                                       theta=theta,
+                                       kernel=kernel,
+                                       xi=xi_0_sn+xi_sn,
+                                       omega=omega_sn,
+                                       alpha=alpha_sn,
+                                       ms_exec=ms_exec)
             }
             else if (identical(kernel,rlaplace))
             {
                 print(c(n,m))
-                b[[n]][[m]] = batch_ms(nrep=nrep,spop=2^m,npop=npop,nloci=2^n_,ncores=ncores,theta=theta,kernel=kernel,location=0,scale=scale_per_locus/sqrt(2))
+                b[[n]][[m]] = batch_ms(nrep=nrep,
+                                       spop=2^m,
+                                       npop=npop,
+                                       nloci=2^n_,
+                                       ncores=ncores,
+                                       theta=theta,
+                                       kernel=kernel,
+                                       location=0,
+                                       scale=scale_per_locus/sqrt(2),
+                                       ms_exec=ms_exec)
             }
             else if (identical(kernel,rstable))
             {
-                b[[n]][[m]] = batch_ms(nrep=nrep,spop=2^m,npop=npop,nloci=2^n_,ncores=ncores,theta=theta,kernel=kernel,gamma=scale_per_locus,alpha=alpha,beta=0)
+                b[[n]][[m]] = batch_ms(nrep=nrep,spop=2^m,
+                                       npop=npop,nloci=2^n_,
+                                       ncores=ncores,
+                                       theta=theta,
+                                       kernel=kernel,
+                                       gamma=scale_per_locus,
+                                       alpha=alpha,
+                                       beta=0,
+                                       ms_exec=ms_exec)
             }
             else
             {
@@ -65,9 +110,9 @@ sim_qts = function(nrep=50,loc=1:8,sam=1:8,npop=2000,theta=.1,kernel=rnorm,scale
 
         }
     }
-    kernel_fn = c("rnorm","rsn","rstable","rlaplace")
-    kernel_str = c("normal","skew-normal","stable","Laplace")
-    kernel_query=as.character(substitute(kernel))
+    kernel_fn    = c("rnorm","rsn","rstable","rlaplace")
+    kernel_str   = c("normal","skew-normal","stable","Laplace")
+    kernel_query = as.character(substitute(kernel))
     kidx = which(kernel_fn==kernel_query)
     ks = kernel_str[kidx]
     if (kidx==2)
@@ -91,22 +136,25 @@ make_cmd_str = function( out_file="ms_trees.txt", ms_exec="~/apps/msdir/ms",spop
 }
 
 # runs batch jobs of ms to simulate data
-batch_ms = function( out_file="ms_trees.txt",ms_path="~/apps/msdir/ms",nrep=1,spop=2,npop=2000,nloci=10,ncores=8,theta=10,div_time=0.1,kernel=rnorm,...)
+batch_ms = function( out_file="ms_trees.txt",ms_exec="~/apps/msdir/ms",nrep=1,spop=2,npop=2000,nloci=10,ncores=8,theta=10,div_time=0.1,kernel=rnorm,...)
 {
     # redirect ms output to out_file
     simlist = list()
     dt = proc.time()[3]
 
     simlist = mclapply(1:nrep, function(josh) {
-    #for (josh in 1:nrep) {
         t = dt
         dt = proc.time()[3]
 
         # read in ms output
         #ms_out = system(cmd_str, intern=TRUE)
-        cmd_str = make_cmd_str(out_file,ms_path,npop,nloci,theta);
+        cmd_str = make_cmd_str(out_file=out_file,
+                               ms_exec=ms_exec,
+                               spop=npop,
+                               nloci=nloci,
+                               theta=theta);
 
-        print(cmd_str)
+        #print(cmd_str)
         ms_out = system(cmd_str,intern=T)
         ds = proc.time()[3]
         write(sprintf("Replicate %d, nl=%d, spop=%d, t=%f",josh,nloci,spop,as.numeric(t)),"")
