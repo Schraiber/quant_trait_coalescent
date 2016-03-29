@@ -31,9 +31,14 @@ sim_qts = function(nrep=50,
                    alpha=2.0,
                    alpha_sn=0.0,
                    xi_sn=0.0,
-                   ncores=16,
+                   ncores=4,
                    ms_exec="~/apps/msdir/ms")
 {
+
+    if (!file.exists(ms_exec)) {
+        stop("Cannot find file ms_exec=\"", ms_exec, "\" does not exist!")
+    }
+
     # loci
     b = list()
     nloc=length(loc)
@@ -138,6 +143,10 @@ make_cmd_str = function( out_file="ms_trees.txt", ms_exec="~/apps/msdir/ms",spop
 # runs batch jobs of ms to simulate data
 batch_ms = function( out_file="ms_trees.txt",ms_exec="~/apps/msdir/ms",nrep=1,spop=2,npop=2000,nloci=10,ncores=8,theta=10,div_time=0.1,kernel=rnorm,...)
 {
+    if (!file.exists(ms_exec)) {
+        stop("Cannot find file ms_exec=\"", ms_exec, "\" does not exist!")
+    }
+
     # redirect ms output to out_file
     simlist = list()
     dt = proc.time()[3]
